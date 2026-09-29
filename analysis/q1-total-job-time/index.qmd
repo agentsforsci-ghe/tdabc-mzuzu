@@ -6,6 +6,7 @@ author:
     affiliations:
       - name: Global Health Engineering, ETH Zürich
 date: 2026-09-29
+bibliography: references.bib
 abstract: |
   We use task-level timing data recorded with the Gulper Timer app during
   ridealong observations of manual pit latrine emptying in Mzuzu, Malawi, to
@@ -24,7 +25,7 @@ library(knitr)
 
 tasks <- read_csv("../../data/all_tasks.csv", show_col_types = FALSE)
 
-fmt <- function(x, digits = 1) format(round(x, digits), nsmall = digits, big.mark = ",")
+fmt <- function(x, digits = 1) format(round(x, digits), nsmall = digits, big.mark = ",", trim = TRUE)
 
 jobs <- tasks |>
   group_by(job_id) |>
@@ -118,6 +119,73 @@ tasks |>
   kable(digits = 1, format.args = list(big.mark = ","))
 ```
 
+@fig-task shows the same breakdown, with tasks coloured by the kind of work
+they belong to.
+
+```{r}
+#| label: fig-task
+#| fig-cap: "Labour time by main task across all 36 jobs, coloured by activity group. Labels give person-hours and share of total labour time."
+#| fig-width: 6.5
+#| fig-height: 4.2
+task_groups <- c(
+  Fluidizing        = "Emptying the pit",
+  Extraction        = "Emptying the pit",
+  `Sludge handling` = "Emptying the pit",
+  Disposal          = "Emptying the pit",
+  Earthworks        = "Site and structure works",
+  Superstructure    = "Site and structure works",
+  Equipment         = "Support tasks",
+  Communication     = "Support tasks",
+  Travel            = "Support tasks",
+  Rest              = "Rest"
+)
+group_colours <- c(
+  "Emptying the pit"         = "#2a78d6",
+  "Site and structure works" = "#eb6834",
+  "Support tasks"            = "#1baf7a",
+  "Rest"                     = "#4a3aa7"
+)
+
+task_summary <- tasks |>
+  group_by(task) |>
+  summarise(hours = sum(duration_seconds) / 3600, .groups = "drop") |>
+  mutate(
+    share = 100 * hours / sum(hours),
+    group = factor(task_groups[task], levels = names(group_colours)),
+    task = reorder(task, hours),
+    label = paste0(fmt(hours), " h (", fmt(share), " %)")
+  )
+
+ggplot(task_summary, aes(x = hours, y = task, fill = group)) +
+  geom_col(width = 0.72) +
+  geom_text(aes(label = label), hjust = -0.08, size = 3, colour = "#52514e") +
+  scale_fill_manual(values = group_colours, name = NULL) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.28))) +
+  labs(x = "Labour time (person-hours)", y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.key.size = unit(0.4, "cm"),
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text = element_text(colour = "#52514e"),
+    axis.text.y = element_text(colour = "#0b0b0b", size = 10)
+  )
+
+group_hours <- tapply(task_summary$hours, task_summary$group, sum)
+```
+
+Grouped this way, the tasks that directly empty the pit (fluidizing,
+extraction, sludge handling and disposal) account for
+`r fmt(group_hours[["Emptying the pit"]])` person-hours
+(`r fmt(100 * group_hours[["Emptying the pit"]] / total_labour_h)` %), about the
+same as Rest (`r fmt(group_hours[["Rest"]])` person-hours). Support tasks take
+`r fmt(group_hours[["Support tasks"]])` person-hours
+(`r fmt(100 * group_hours[["Support tasks"]] / total_labour_h)` %) and site and
+structure works `r fmt(group_hours[["Site and structure works"]])` person-hours
+(`r fmt(100 * group_hours[["Site and structure works"]] / total_labour_h)` %).
+
 @fig-jobs shows the labour time of each job. Labour time varies widely between jobs;
 @tbl-jobs in the appendix lists the values for every job.
 
@@ -154,7 +222,7 @@ The total amount of time spent on the `r n_jobs` observed pit emptying jobs was
 person-hour figure is the relevant quantity, since it reflects the labour
 capacity consumed by the service.
 
-# Appendix {.appendix}
+# Appendix A: Job-level results {.appendix}
 
 ```{r}
 #| label: tbl-jobs
@@ -173,3 +241,29 @@ jobs |>
   )) |>
   kable(digits = 1, format.args = list(big.mark = ","))
 ```
+
+# Appendix B: Relevant literature {.appendix}
+
+The five references in the author's Zotero library most relevant to this
+dataset, with one sentence on why each matters here:
+
+1. @yesaya2021cost apply time-driven activity-based costing to compost
+   production in Blantyre, Malawi, making it the closest methodological
+   precedent for turning task-level timing data like these into activity costs.
+2. @wilcox2026formal analyse the costs of 23 formal manual emptying providers in
+   Malawi and Uganda and find labour is what makes manual emptying expensive,
+   which is why the person-hours measured here are the key input for costing.
+3. @chipeta2017designing designed and tested the pedal-powered Gulper pump in
+   Mzuzu and estimated that a pit can be emptied in 1–2 hours when trash
+   content is low, a benchmark for the job durations recorded here.
+4. @chiposa2017characterization characterise pit latrines in peri-urban Mzuzu,
+   reporting that 90 % of households also dispose of domestic waste in their
+   pits, which helps explain the time spent on tasks such as pulling out trash.
+5. @burt2019costs estimate the cost of delivering pit emptying services in
+   Kigali, Rwanda, at different scales, giving a comparison point for costs
+   derived from the labour time reported here.
+
+# References
+
+::: {#refs}
+:::
