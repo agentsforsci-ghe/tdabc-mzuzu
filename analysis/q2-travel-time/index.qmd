@@ -25,14 +25,14 @@ library(readr)
 library(ggplot2)
 library(knitr)
 
-tasks <- read_csv("../../data/all_tasks.csv", show_col_types = FALSE)
+tasks <- read_csv("../../data/all_tasks_clean.csv", show_col_types = FALSE)
 
 fmt <- function(x, digits = 1) format(round(x, digits), nsmall = digits, big.mark = ",", trim = TRUE)
 
 n_jobs_all <- n_distinct(tasks$job_id)
 n_entries <- nrow(tasks)
 n_workers <- n_distinct(tasks$gulper_id)
-dates <- as.Date(substr(unique(tasks$job_id), 1, 10))
+dates <- tasks$date
 total_labour_h <- sum(tasks$duration_seconds) / 3600
 
 job_labour <- tasks |>
@@ -97,14 +97,6 @@ mean_trip_min <- mean(trips$clock_min)
 mean_gulpers_trip <- mean(trips$gulpers)
 ratio <- sum(jobs$labour_h) / sum(jobs$clock_h)
 travel_share_total <- 100 * sum(jobs$labour_h) / total_labour_h
-
-# Recording sessions (data review): does any travel job hold two sessions?
-sessions <- tasks |>
-  group_by(job_id) |>
-  summarise(n_sessions = sum(entry_number == 1), .groups = "drop")
-split_travel_jobs <- sessions |>
-  filter(n_sessions > 1, job_id %in% jobs$job_id) |>
-  pull(job_id)
 ```
 
 # Introduction
@@ -119,7 +111,7 @@ site, when a team travels to the disposal site?**
 
 # Data and methods
 
-The dataset (`data/all_tasks.csv`) contains `r fmt(n_entries, 0)` task entries
+The dataset (`data/all_tasks_clean.csv`) contains `r fmt(n_entries, 0)` task entries
 recorded for `r n_jobs_all` pit emptying jobs between
 `r format(min(dates), "%d %B %Y")` and `r format(max(dates), "%d %B %Y")`,
 performed by `r n_workers` anonymised pit emptiers ("gulpers"). Each entry
@@ -159,10 +151,13 @@ which removes `r fmt(sum(short$labour_h) * 60)` person-minutes. One job
 therefore does not count as a job with a disposal trip. The effect of keeping
 these entries is reported in the Results.
 
-Other data checks: the file has no missing values except `subtask`, which is
-empty by design for the Rest and Disposal tasks. Recorded durations agree with
-the difference between end and start times to within ±1 second. No job crosses
-midnight, so elapsed time can be computed from clock times directly.
+The file is the cleaned version of the raw app export, produced by
+`data-review/clean.R` and documented in `data-review/README.md`: accidental
+taps shorter than 2 seconds were dropped, one subtask label was harmonised and
+job identities were corrected from field knowledge. None of the corrections
+touches a job with a disposal trip. Recorded durations agree with the
+difference between end and start times to within ±1 second, and no trip
+crosses midnight.
 
 # Results
 
@@ -241,14 +236,12 @@ travel (`r paste(jobs$job_id[order(-jobs$clock_h)][1:2], collapse = " and ")`)
 made `r paste(sort(jobs$trips[order(-jobs$clock_h)][1:2], decreasing = TRUE), collapse = " and ")`
 trips respectively.
 
-Two sensitivity checks. First, keeping the short entries dropped in the
-Methods adds one job and changes the mean elapsed travel time to
+As a sensitivity check, keeping the short entries dropped in the Methods
+adds one job and changes the mean elapsed travel time to
 `r fmt(mean(jobs_unfiltered$clock_h))` hours over
 `r nrow(jobs_unfiltered)` jobs (`r fmt(mean(jobs_unfiltered$labour_h))`
 person-hours); this is lower only because the added job contributes a
-`r fmt(min(jobs_unfiltered$clock_h) * 60, 1)`-minute entry. Second, the data
-review found three job IDs that each hold two recording sessions by different
-crews and may be two jobs. `r if (length(split_travel_jobs) == 0) "None of the jobs with a disposal trip is among them, so the result is unaffected." else paste0("Of the jobs with a disposal trip, ", paste(split_travel_jobs, collapse = " and "), " is affected.")`
+`r fmt(min(jobs_unfiltered$clock_h) * 60, 1)`-minute entry.
 
 # Conclusion
 
