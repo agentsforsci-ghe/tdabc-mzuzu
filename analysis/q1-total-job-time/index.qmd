@@ -23,20 +23,36 @@ library(readr)
 library(ggplot2)
 library(knitr)
 
-tasks <- read_csv("../../data/all_tasks.csv", show_col_types = FALSE)
+tasks <- read_csv("../../data/all_tasks_clean.csv", show_col_types = FALSE)
 
 fmt <- function(x, digits = 1) format(round(x, digits), nsmall = digits, big.mark = ",", trim = TRUE)
+
+# Elapsed time is the span from first start to last end on each recorded
+# day; one job was recorded over two days, so its daily spans are added.
+day_spans <- tasks |>
+  group_by(job_id, date) |>
+  summarise(span_h = as.numeric(max(entry_end_time) - min(entry_start_time)) / 3600,
+            .groups = "drop")
 
 jobs <- tasks |>
   group_by(job_id) |>
   summarise(
-    date = as.Date(substr(first(job_id), 1, 10)),
+    date = min(date),
+    n_days = n_distinct(date),
     n_workers = n_distinct(gulper_id),
     n_entries = n(),
     labour_h = sum(duration_seconds) / 3600,
-    elapsed_h = as.numeric(max(entry_end_time) - min(entry_start_time)) / 3600,
     .groups = "drop"
-  )
+  ) |>
+  left_join(day_spans |> group_by(job_id) |> summarise(elapsed_h = sum(span_h), .groups = "drop"),
+            by = "job_id")
+
+# Sensitivity: the four entries flagged timer_suspect capped at 50 minutes
+capped_labour_h <- tasks |>
+  mutate(d = if_else(grepl("timer_suspect", flags), pmin(duration_seconds, 3000), duration_seconds)) |>
+  summarise(h = sum(d) / 3600) |>
+  pull(h)
+n_suspect <- sum(grepl("timer_suspect", tasks$flags))
 
 total_labour_h <- sum(jobs$labour_h)
 total_elapsed_h <- sum(jobs$elapsed_h)
@@ -57,7 +73,7 @@ jobs?**
 
 # Data and methods
 
-The dataset (`data/all_tasks.csv`) contains `r fmt(n_entries, 0)` task entries
+The dataset (`data/all_tasks_clean.csv`) contains `r fmt(n_entries, 0)` task entries
 recorded for `r n_jobs` pit emptying jobs between
 `r format(min(jobs$date), "%d %B %Y")` and `r format(max(jobs$date), "%d %B %Y")`,
 performed by `r n_workers` anonymised pit emptiers ("gulpers"). Each entry records
@@ -71,17 +87,27 @@ can be measured in two ways:
   i.e. every worker's recorded time added together. This is the measure relevant
   for TDABC, where labour capacity is the resource being costed.
 - **Elapsed time (clock hours):** for each job, the interval from the earliest
-  `entry_start_time` to the latest `entry_end_time`, summed across jobs. This
+  `entry_start_time` to the latest `entry_end_time`, summed across jobs. For
+  the one job recorded over two days the two daily intervals are added. This
   measures how long the jobs took on the calendar.
 
 All recorded tasks, including Rest, Communication and in-job Travel (errands and
 trips to the disposal site), are counted as time spent on the job. Travel from
 the gulpers' base to the job site is not part of the task categories recorded.
 
-Data checks: the file has no missing values except `subtask`, which is empty by
-design for the Rest and Disposal tasks. Recorded durations agree with the
-difference between end and start times to within ±1 second (rounding). No job
-crosses midnight, so elapsed time can be computed from clock times directly.
+The file is the cleaned version of the raw app export, produced by
+`data-review/clean.R` and documented in `data-review/README.md`. Relative to
+the raw export, six accidental taps shorter than 2 seconds were dropped, the
+Equipment subtask "Repair" was recoded to "Repairing", and job identities were
+corrected from field knowledge: the recordings filed as 2026-06-12_01 and
+2026-06-13_01 are one job carried out over two days by two crews, and the two
+recording sessions filed under 2026-06-14_02 are two separate jobs
+(2026-06-14_02a and 2026-06-14_02b). The file has no missing values except
+`subtask`, which is empty by design for the Rest and Disposal tasks, and
+recorded durations agree with the difference between end and start times to
+within ±1 second. Sixteen entries longer than 50 minutes are kept as recorded;
+`r n_suspect` of them, in 2026-09-03_03, look like timers left running over a
+break and are used in a sensitivity check below.
 
 # Results
 
@@ -94,7 +120,11 @@ at any moment of a job. Per job, the mean labour time was
 range `r fmt(min(jobs$labour_h))`–`r fmt(max(jobs$labour_h))`) and the mean
 elapsed time was `r fmt(mean(jobs$elapsed_h))` hours (median
 `r fmt(median(jobs$elapsed_h))`, range
-`r fmt(min(jobs$elapsed_h))`–`r fmt(max(jobs$elapsed_h))`).
+`r fmt(min(jobs$elapsed_h))`–`r fmt(max(jobs$elapsed_h))`). Capping the
+`r n_suspect` suspect entries at 50 minutes would lower the total labour time
+to `r fmt(capped_labour_h)` person-hours, a change of
+`r fmt(total_labour_h - capped_labour_h)` person-hours
+(`r fmt(100 * (total_labour_h - capped_labour_h) / total_labour_h)` %).
 
 @tbl-task breaks the labour time down by main task. Rest is the largest single
 category (`r fmt(rest_h)` person-hours, `r fmt(100 * rest_h / total_labour_h)` %
