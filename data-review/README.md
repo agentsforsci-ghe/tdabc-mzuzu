@@ -18,6 +18,60 @@ one line per row and flag. `row` is the data row number in `all_tasks.csv`
 | `near_zero_duration` | 6 | Low | Accidental taps? |
 | `label_variant` | 3 | Low | Merge "Repair" into "Repairing"? |
 
+## Resolution (29 September 2026)
+
+Every flag is resolved by `data-review/clean.R`, which reads the raw file,
+applies the actions below and writes `data/all_tasks_clean.csv` plus
+`data-review/cleaning_log.csv` (one line per changed or dropped row, with the
+raw `row` number). Reproduce with `Rscript data-review/clean.R` from the
+repository root. The raw file is never edited, and `review.R` still runs
+against it unchanged. Both manuscripts under `analysis/` now read the cleaned
+file.
+
+### Job identity
+
+Decided from field knowledge, not from the data:
+
+| Raw job_id (session) | Gulpers | Decision | Cleaned job_id |
+|---|---|---|---|
+| 2026-06-12_01 | 1, 3, 11, 18 | one job with the two rows below (two days, two crews) | 2026-06-12_01 |
+| 2026-06-13_01 (session 1) | 1, 3, 11, 18 | same job, second day | 2026-06-12_01 |
+| 2026-06-13_01 (session 2) | 6, 10, 14, 19 | same job, second crew | 2026-06-12_01 |
+| 2026-06-14_02 (session 1) | 1, 3, 11, 18 | a separate job | 2026-06-14_02a |
+| 2026-06-14_02 (session 2) | 10, 12, 14 | a separate job | 2026-06-14_02b |
+| 2026-09-03_03 (sessions 1 and 2) | 1, 3, 14, 16 / 2, 12, 18 | one job | 2026-09-03_03 |
+
+The cleaned file therefore still has 36 jobs, one of which spans two dates.
+`job_id_raw`, `session` and `entry_number_raw` keep the original values;
+`entry_number` is renumbered within each cleaned job; `date` comes from the
+raw job ID.
+
+### Actions per flag
+
+| Flag | Rows | Action in the cleaned file |
+|---|---:|---|
+| `session_restart` | 3 | Resolved by the job-identity table above. |
+| `long_entry` | 16 | Kept unchanged; marked `long_entry` in the `flags` column. The four entries in 2026-09-03_03 ending within a minute of 13:22 are also marked `timer_suspect`, so analyses can cap or exclude them in a sensitivity check. |
+| `long_gap_before` | 35 | Kept; marked `long_gap_before` (34 rows remain, one was dropped as near-zero). Gaps are unrecorded time, not errors. |
+| `near_zero_duration` | 6 | Dropped as accidental taps (rows 283, 3316, 6097, 7134, 9765, 9768; 5.5 seconds in total). |
+| `label_variant` | 3 | Equipment "Repair" recoded to "Repairing". "Repair" under Superstructure is a different subtask and is left alone. |
+| README count | 1 | The project README now gives the real counts. |
+
+### Still to verify in the field
+
+The data cannot settle these; they are flagged, not changed:
+
+- 2026-09-03_03: the four entries of 78–87 minutes all ending at about 13:22
+  (was the timer left running over a break?), and the seven Rest entries
+  ending together at about 16:34.
+- 2026-06-14_02 (now 2026-06-14_02a): four short entries at 19:43–19:48 after
+  a 91-minute gap, which extend the job by 1.5 clock hours.
+- 2026-08-08_01: gulper 5's 2.9-second Travel entry at 18:02 after 126
+  minutes with no record.
+- All-crew gaps of 48–100 minutes in 2026-06-29_01, 2026-07-09_01,
+  2026-08-20_02 and 2026-08-27_02, which may be breaks not logged as Rest.
+- Starts before 06:00 in 2026-07-29_01, 2026-06-18_01 and 2026-09-14_01.
+
 ## 1. Two recording sessions under one job ID (high)
 
 In 33 jobs, `entry_number` runs from 1 to n once. In three jobs it restarts at

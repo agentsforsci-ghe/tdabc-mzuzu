@@ -15,13 +15,15 @@ This repository contains task-level timing data collected during pit latrine emp
 
 ## Dataset Description
 
-`data/all_tasks.csv` contains 10,435 records of individual tasks and subtasks performed during pit latrine emptying operations.
+`data/all_tasks.csv` contains 10,784 records of individual tasks and subtasks performed during pit latrine emptying operations, as exported from the app (raw, never edited).
+
+`data/all_tasks_clean.csv` is the cleaned version used by the analyses (10,778 records, 36 jobs). It is produced by `data-review/clean.R` from the raw file: six accidental taps under 2 seconds are dropped, the Equipment subtask "Repair" is recoded to "Repairing", and job IDs are corrected from field knowledge (2026-06-12_01 and 2026-06-13_01 are one two-day job; the two recording sessions in 2026-06-14_02 are two jobs, 2026-06-14_02a and 2026-06-14_02b). Every change is listed in `data-review/cleaning_log.csv`, and `data-review/README.md` explains the review and the decisions.
 
 ### Columns
 
 | Column | Description |
 |--------|-------------|
-| `entry_number` | Sequential entry identifier |
+| `entry_number` | Sequential entry identifier (in the raw file it restarts at 1 where a second recording session was filed under the same job ID) |
 | `gulper_id` | Anonymous identifier for the pit emptier (worker) |
 | `task` | Main task category (e.g., Fluidizing, Extraction, Communication, Rest) |
 | `subtask` | Specific subtask within the main task (e.g., Adding water, Mixing, Removing sludge) |
@@ -29,6 +31,8 @@ This repository contains task-level timing data collected during pit latrine emp
 | `entry_end_time` | End time of the task (HH:MM:SS) |
 | `duration_seconds` | Task duration in seconds |
 | `job_id` | Identifier linking tasks to a specific pit emptying job |
+
+The cleaned file has the same columns plus `date` (from the raw job ID), `session` (recording session within the raw job ID), `flags` (semicolon-separated: `long_entry`, `long_gap_before`, `timer_suspect`; empty if none), `job_id_raw` and `entry_number_raw` (the original values).
 
 ## Key Features
 
