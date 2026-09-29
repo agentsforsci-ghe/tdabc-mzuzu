@@ -1,0 +1,175 @@
+---
+title: "Total time spent on pit emptying jobs in Mzuzu, Malawi"
+author:
+  - name: Padraic Casserly
+    email: pcasserly@ethz.ch
+    affiliations:
+      - name: Global Health Engineering, ETH Zürich
+date: 2026-09-29
+abstract: |
+  We use task-level timing data recorded with the Gulper Timer app during
+  ridealong observations of manual pit latrine emptying in Mzuzu, Malawi, to
+  quantify the total time spent on pit emptying jobs. Time is reported in two
+  ways: labour time (person-hours, the sum of all task durations across all
+  workers) and elapsed time (clock hours from the first to the last recorded
+  task of each job).
+---
+
+```{r}
+#| label: setup
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(knitr)
+
+tasks <- read_csv("../../data/all_tasks.csv", show_col_types = FALSE)
+
+fmt <- function(x, digits = 1) format(round(x, digits), nsmall = digits, big.mark = ",")
+
+jobs <- tasks |>
+  group_by(job_id) |>
+  summarise(
+    date = as.Date(substr(first(job_id), 1, 10)),
+    n_workers = n_distinct(gulper_id),
+    n_entries = n(),
+    labour_h = sum(duration_seconds) / 3600,
+    elapsed_h = as.numeric(max(entry_end_time) - min(entry_start_time)) / 3600,
+    .groups = "drop"
+  )
+
+total_labour_h <- sum(jobs$labour_h)
+total_elapsed_h <- sum(jobs$elapsed_h)
+n_jobs <- nrow(jobs)
+n_workers <- n_distinct(tasks$gulper_id)
+n_entries <- nrow(tasks)
+
+rest_h <- sum(tasks$duration_seconds[tasks$task == "Rest"]) / 3600
+```
+
+# Introduction
+
+Time-driven activity-based costing (TDABC) allocates costs to activities based
+on the time resources spend on them. A first step is therefore to establish how
+much time is consumed by the service being costed. This short manuscript
+answers the question: **What is the total amount of time spent on pit emptying
+jobs?**
+
+# Data and methods
+
+The dataset (`data/all_tasks.csv`) contains `r fmt(n_entries, 0)` task entries
+recorded for `r n_jobs` pit emptying jobs between
+`r format(min(jobs$date), "%d %B %Y")` and `r format(max(jobs$date), "%d %B %Y")`,
+performed by `r n_workers` anonymised pit emptiers ("gulpers"). Each entry records
+one worker performing one task (e.g. Fluidizing, Extraction, Rest) with a start
+time, end time and duration in seconds.
+
+Because several gulpers often work simultaneously on the same job, "time spent"
+can be measured in two ways:
+
+- **Labour time (person-hours):** the sum of `duration_seconds` over all entries,
+  i.e. every worker's recorded time added together. This is the measure relevant
+  for TDABC, where labour capacity is the resource being costed.
+- **Elapsed time (clock hours):** for each job, the interval from the earliest
+  `entry_start_time` to the latest `entry_end_time`, summed across jobs. This
+  measures how long the jobs took on the calendar.
+
+All recorded tasks, including Rest, Communication and in-job Travel (errands and
+trips to the disposal site), are counted as time spent on the job. Travel from
+the gulpers' base to the job site is not part of the task categories recorded.
+
+Data checks: the file has no missing values except `subtask`, which is empty by
+design for the Rest and Disposal tasks. Recorded durations agree with the
+difference between end and start times to within ±1 second (rounding). No job
+crosses midnight, so elapsed time can be computed from clock times directly.
+
+# Results
+
+Across the `r n_jobs` observed jobs, gulpers spent a total of
+**`r fmt(total_labour_h)` person-hours** on pit emptying. The jobs took a total of
+**`r fmt(total_elapsed_h)` elapsed clock hours**, so on average
+`r fmt(total_labour_h / total_elapsed_h)` gulpers' worth of time was being recorded
+at any moment of a job. Per job, the mean labour time was
+`r fmt(mean(jobs$labour_h))` person-hours (median `r fmt(median(jobs$labour_h))`,
+range `r fmt(min(jobs$labour_h))`–`r fmt(max(jobs$labour_h))`) and the mean
+elapsed time was `r fmt(mean(jobs$elapsed_h))` hours (median
+`r fmt(median(jobs$elapsed_h))`, range
+`r fmt(min(jobs$elapsed_h))`–`r fmt(max(jobs$elapsed_h))`).
+
+@tbl-task breaks the labour time down by main task. Rest is the largest single
+category (`r fmt(rest_h)` person-hours, `r fmt(100 * rest_h / total_labour_h)` %
+of the total).
+
+```{r}
+#| label: tbl-task
+#| tbl-cap: "Labour time by main task, summed over all 36 jobs."
+tasks |>
+  group_by(Task = task) |>
+  summarise(
+    Entries = n(),
+    `Person-hours` = sum(duration_seconds) / 3600,
+    .groups = "drop"
+  ) |>
+  arrange(desc(`Person-hours`)) |>
+  mutate(`Share (%)` = 100 * `Person-hours` / sum(`Person-hours`)) |>
+  bind_rows(tibble(
+    Task = "Total", Entries = n_entries,
+    `Person-hours` = total_labour_h, `Share (%)` = 100
+  )) |>
+  kable(digits = 1, format.args = list(big.mark = ","))
+```
+
+@fig-jobs shows the labour time of each job. Labour time varies widely between jobs;
+@tbl-jobs in the appendix lists the values for every job.
+
+```{r}
+#| label: fig-jobs
+#| fig-cap: "Labour time (person-hours) per pit emptying job, ordered by date."
+#| fig-width: 6.5
+#| fig-height: 6
+jobs |>
+  mutate(job_id = factor(job_id, levels = rev(job_id))) |>
+  ggplot(aes(x = labour_h, y = job_id)) +
+  geom_col(fill = "#2a78d6", width = 0.7) +
+  geom_vline(xintercept = mean(jobs$labour_h), linetype = "dashed", colour = "#52514e") +
+  annotate("text", x = mean(jobs$labour_h), y = n_jobs + 0.6,
+           label = paste0("mean ", fmt(mean(jobs$labour_h)), " h"),
+           hjust = -0.05, size = 3, colour = "#52514e") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(clip = "off") +
+  labs(x = "Labour time (person-hours)", y = NULL) +
+  theme_minimal(base_size = 10) +
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text = element_text(colour = "#52514e"),
+    plot.margin = margin(12, 8, 4, 4)
+  )
+```
+
+# Conclusion
+
+The total amount of time spent on the `r n_jobs` observed pit emptying jobs was
+**`r fmt(total_labour_h)` person-hours** of recorded labour
+(`r fmt(total_elapsed_h)` elapsed clock hours). For TDABC purposes the
+person-hour figure is the relevant quantity, since it reflects the labour
+capacity consumed by the service.
+
+# Appendix {.appendix}
+
+```{r}
+#| label: tbl-jobs
+#| tbl-cap: "Workers, labour time and elapsed time for each job."
+jobs |>
+  transmute(
+    Job = job_id,
+    Gulpers = n_workers,
+    Entries = n_entries,
+    `Labour (person-h)` = labour_h,
+    `Elapsed (h)` = elapsed_h
+  ) |>
+  bind_rows(tibble(
+    Job = "Total", Gulpers = n_workers, Entries = n_entries,
+    `Labour (person-h)` = total_labour_h, `Elapsed (h)` = total_elapsed_h
+  )) |>
+  kable(digits = 1, format.args = list(big.mark = ","))
+```
