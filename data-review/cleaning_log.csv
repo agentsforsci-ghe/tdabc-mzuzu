@@ -1,0 +1,14 @@
+row,job_id_raw,gulper_id,task,subtask,duration_seconds,action,detail
+115,2026-05-08_01,17,Equipment,Repair,212.3,recode_label,subtask 'Repair' recoded to 'Repairing'
+116,2026-05-08_01,5,Equipment,Repair,123.2,recode_label,subtask 'Repair' recoded to 'Repairing'
+117,2026-05-08_01,5,Equipment,Repair,17.1,recode_label,subtask 'Repair' recoded to 'Repairing'
+283,2026-05-21_01,15,Equipment,Cleaning,0,drop_near_zero,"duration 0.0 s, dropped as accidental tap"
+750,2026-06-13_01,,,,,merge_job,session 1 (208 rows from this row) assigned to job 2026-06-12_01
+958,2026-06-13_01,,,,,merge_job,session 2 (931 rows from this row) assigned to job 2026-06-12_01
+2130,2026-06-14_02,,,,,split_job,session 1 (455 rows from this row) assigned to job 2026-06-14_02a
+2585,2026-06-14_02,,,,,split_job,session 2 (731 rows from this row) assigned to job 2026-06-14_02b
+3316,2026-06-14_02,12,Rest,,1.6,drop_near_zero,"duration 1.6 s, dropped as accidental tap"
+6097,2026-07-31_01,18,Rest,,1.9,drop_near_zero,"duration 1.9 s, dropped as accidental tap"
+7134,2026-08-11_03,13,Disposal,,0.3,drop_near_zero,"duration 0.3 s, dropped as accidental tap"
+9765,2026-09-03_03,14,Travel,On errand,0.9,drop_near_zero,"duration 0.9 s, dropped as accidental tap"
+9768,2026-09-03_03,3,Travel,On errand,0.8,drop_near_zero,"duration 0.8 s, dropped as accidental tap"
