@@ -1,0 +1,64 @@
+row,flag,detail,job_id,session,entry_number,gulper_id,task,subtask,entry_start_time,entry_end_time,duration_seconds
+115,label_variant,Equipment subtask 'Repair' (3 rows) vs 'Repairing' (51 rows),2026-05-08_01,1,115,17,Equipment,Repair,10:04:10,10:07:42,212.3
+116,label_variant,Equipment subtask 'Repair' (3 rows) vs 'Repairing' (51 rows),2026-05-08_01,1,116,5,Equipment,Repair,10:04:33,10:06:36,123.2
+117,label_variant,Equipment subtask 'Repair' (3 rows) vs 'Repairing' (51 rows),2026-05-08_01,1,117,5,Equipment,Repair,10:06:58,10:07:15,17.1
+283,near_zero_duration,duration 0.0 s,2026-05-21_01,1,121,15,Equipment,Cleaning,11:58:09,11:58:09,0
+934,long_entry,single entry lasts 54 min,2026-06-13_01,1,185,3,Earthworks,Fill trench,11:09:32,12:03:58,3265.8
+934,long_gap_before,13 min unrecorded since this worker's previous entry,2026-06-13_01,1,185,3,Earthworks,Fill trench,11:09:32,12:03:58,3265.8
+936,long_gap_before,13 min unrecorded since this worker's previous entry,2026-06-13_01,1,187,11,Earthworks,Fill trench,11:17:16,12:05:29,2892.3
+958,session_restart,entry_number restarts at 1 within the job; rows from here belong to a second recording session,2026-06-13_01,2,1,6,Equipment,Maneuvering,07:41:53,07:43:03,70
+1883,long_gap_before,30 min unrecorded since this worker's previous entry,2026-06-13_01,2,926,6,Rest,,11:39:04,11:41:38,154.3
+1886,long_gap_before,40 min unrecorded since this worker's previous entry,2026-06-13_01,2,929,19,Rest,,11:49:47,11:51:37,110.1
+1887,long_gap_before,40 min unrecorded since this worker's previous entry,2026-06-13_01,2,930,10,Fluidizing,Fetching water,11:50:43,11:51:37,53.5
+1888,long_gap_before,38 min unrecorded since this worker's previous entry,2026-06-13_01,2,931,14,Superstructure,Cleaning,11:51:32,11:51:37,5.1
+2222,long_entry,single entry lasts 67 min,2026-06-14_02,1,93,11,Equipment,Maneuvering,13:05:01,14:11:31,3990.2
+2581,long_gap_before,91 min unrecorded since this worker's previous entry,2026-06-14_02,1,452,11,Equipment,Cleaning,19:43:28,19:48:09,280.6
+2582,long_gap_before,91 min unrecorded since this worker's previous entry,2026-06-14_02,1,453,3,Equipment,Cleaning,19:43:34,19:48:09,274.2
+2583,long_gap_before,91 min unrecorded since this worker's previous entry,2026-06-14_02,1,454,1,Equipment,Cleaning,19:44:42,19:48:09,206.4
+2584,long_gap_before,91 min unrecorded since this worker's previous entry,2026-06-14_02,1,455,18,Communication,With other gulper(s),19:45:29,19:48:09,159.2
+2585,session_restart,entry_number restarts at 1 within the job; rows from here belong to a second recording session,2026-06-14_02,2,1,12,Equipment,Maneuvering,11:57:28,11:58:33,65.1
+3316,long_gap_before,11 min unrecorded since this worker's previous entry,2026-06-14_02,2,732,12,Rest,,16:10:12,16:10:13,1.6
+3316,near_zero_duration,duration 1.6 s,2026-06-14_02,2,732,12,Rest,,16:10:12,16:10:13,1.6
+3874,long_gap_before,49 min unrecorded since this worker's previous entry,2026-06-29_01,1,129,10,Rest,,14:51:24,15:21:42,1818.1
+3875,long_gap_before,49 min unrecorded since this worker's previous entry,2026-06-29_01,1,130,16,Rest,,15:21:18,15:22:11,52.6
+3877,long_gap_before,49 min unrecorded since this worker's previous entry,2026-06-29_01,1,132,12,Rest,,15:21:44,15:21:52,7.4
+3879,long_gap_before,49 min unrecorded since this worker's previous entry,2026-06-29_01,1,134,6,Rest,,15:21:57,15:21:59,2.8
+4507,long_gap_before,48 min unrecorded since this worker's previous entry,2026-07-09_01,1,239,16,Rest,,14:31:47,14:38:51,423.5
+4508,long_gap_before,48 min unrecorded since this worker's previous entry,2026-07-09_01,1,240,10,Rest,,14:31:51,14:35:05,194.3
+4509,long_gap_before,48 min unrecorded since this worker's previous entry,2026-07-09_01,1,241,1,Rest,,14:33:37,14:34:15,38.2
+4510,long_gap_before,48 min unrecorded since this worker's previous entry,2026-07-09_01,1,242,14,Rest,,14:33:42,14:34:43,61.3
+5005,long_gap_before,17 min unrecorded since this worker's previous entry,2026-07-27_03,1,222,18,Communication,With other gulper(s),12:29:09,12:30:02,53
+6097,near_zero_duration,duration 1.9 s,2026-07-31_01,1,456,18,Rest,,17:58:47,17:58:49,1.9
+6323,long_gap_before,13 min unrecorded since this worker's previous entry,2026-08-08_01,1,27,8,Travel,On errand,08:39:36,08:43:24,228
+6887,long_gap_before,12 min unrecorded since this worker's previous entry,2026-08-08_01,1,591,5,Rest,,15:54:49,15:55:50,61.7
+6946,long_gap_before,11 min unrecorded since this worker's previous entry,2026-08-08_01,1,650,8,Equipment,Cleaning,18:01:33,18:02:09,35.5
+6947,long_gap_before,126 min unrecorded since this worker's previous entry,2026-08-08_01,1,651,5,Travel,Travel to disposal site,18:02:06,18:02:09,2.9
+7134,near_zero_duration,duration 0.3 s,2026-08-11_03,1,187,13,Disposal,,10:51:54,10:51:54,0.3
+7580,long_entry,single entry lasts 60 min,2026-08-20_02,1,229,17,Rest,,12:14:18,13:14:11,3593
+7581,long_entry,single entry lasts 59 min,2026-08-20_02,1,230,8,Rest,,12:15:36,13:14:23,3526.7
+7582,long_entry,single entry lasts 59 min,2026-08-20_02,1,231,7,Rest,,12:15:38,13:14:20,3522.1
+7583,long_entry,single entry lasts 59 min,2026-08-20_02,1,232,6,Rest,,12:15:40,13:14:16,3516
+7638,long_gap_before,58 min unrecorded since this worker's previous entry,2026-08-20_02,1,287,6,Rest,,15:31:09,15:36:43,334.2
+7639,long_gap_before,58 min unrecorded since this worker's previous entry,2026-08-20_02,1,288,8,Rest,,15:32:30,15:36:43,253.5
+7640,long_gap_before,58 min unrecorded since this worker's previous entry,2026-08-20_02,1,289,17,Rest,,15:36:36,15:36:43,7
+7641,long_gap_before,58 min unrecorded since this worker's previous entry,2026-08-20_02,1,290,7,Rest,,15:36:38,15:36:43,4.8
+8891,long_entry,single entry lasts 50 min,2026-08-27_02,1,59,11,Rest,,10:09:22,10:59:28,3006.4
+9049,long_gap_before,100 min unrecorded since this worker's previous entry,2026-08-27_02,1,217,2,Rest,,13:44:53,13:47:31,158.4
+9050,long_gap_before,100 min unrecorded since this worker's previous entry,2026-08-27_02,1,218,11,Rest,,13:46:07,13:47:31,84
+9051,long_gap_before,100 min unrecorded since this worker's previous entry,2026-08-27_02,1,219,16,Rest,,13:46:30,13:47:31,61.5
+9052,long_gap_before,100 min unrecorded since this worker's previous entry,2026-08-27_02,1,220,14,Rest,,13:46:32,13:47:31,59.2
+9652,long_entry,single entry lasts 87 min,2026-09-03_03,1,225,1,Fluidizing,Mixing,11:54:46,13:21:57,5230.8
+9653,long_entry,single entry lasts 84 min,2026-09-03_03,1,226,14,Fluidizing,Mixing,11:57:11,13:21:25,5054.6
+9655,long_entry,single entry lasts 81 min,2026-09-03_03,1,228,16,Extraction,Pulling out trash,12:00:54,13:22:01,4867.2
+9656,long_entry,single entry lasts 78 min,2026-09-03_03,1,229,3,Disposal,,12:03:40,13:21:50,4690.2
+9752,long_entry,single entry lasts 68 min,2026-09-03_03,1,325,3,Rest,,15:25:46,16:34:09,4102.2
+9754,long_entry,single entry lasts 68 min,2026-09-03_03,1,327,16,Rest,,15:26:14,16:34:18,4083.9
+9755,long_entry,single entry lasts 67 min,2026-09-03_03,1,328,1,Rest,,15:27:05,16:34:14,4028.2
+9765,near_zero_duration,duration 0.9 s,2026-09-03_03,1,338,14,Travel,On errand,16:54:34,16:54:35,0.9
+9768,near_zero_duration,duration 0.8 s,2026-09-03_03,1,341,3,Travel,On errand,16:55:26,16:55:27,0.8
+9789,session_restart,entry_number restarts at 1 within the job; rows from here belong to a second recording session,2026-09-03_03,2,1,18,Fluidizing,Fetching water,09:09:59,09:13:03,184.1
+10042,long_entry,single entry lasts 62 min,2026-09-03_03,2,254,2,Rest,,15:32:12,16:33:48,3696.1
+10043,long_entry,single entry lasts 59 min,2026-09-03_03,2,255,12,Rest,,15:34:36,16:33:44,3548
+10681,long_gap_before,36 min unrecorded since this worker's previous entry,2026-09-14_01,1,90,4,Rest,,09:00:00,09:00:17,16.9
+10682,long_gap_before,36 min unrecorded since this worker's previous entry,2026-09-14_01,1,91,9,Rest,,09:00:09,09:00:17,8.4
+10683,long_gap_before,36 min unrecorded since this worker's previous entry,2026-09-14_01,1,92,15,Rest,,09:00:11,09:00:17,5.9
