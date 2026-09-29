@@ -1,0 +1,510 @@
+---
+title: "Time spent on manual pit emptying jobs in Mzuzu, Malawi: total job time and travel to the disposal site"
+author:
+  - name: Padraic Casserly
+    email: pcasserly@ethz.ch
+    affiliations:
+      - name: Global Health Engineering, ETH Zürich
+date: 2026-09-29
+bibliography: references.bib
+abstract: |
+  We use task-level timing data recorded with the Gulper Timer app during
+  ridealong observations of manual pit latrine emptying in Mzuzu, Malawi, to
+  answer two questions that time-driven activity-based costing (TDABC) needs
+  answered first: how much time is spent on a pit emptying job in total, and
+  how much of a job is spent travelling to the sludge disposal site when the
+  team makes such a trip. Time is reported in two ways throughout: labour
+  time (person-hours, every worker's recorded time added together) and
+  elapsed time (clock hours, with simultaneous work by several workers
+  counted once).
+editor:
+  markdown:
+    wrap: 72
+---
+
+```{r}
+#| label: setup
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(knitr)
+
+tasks <- read_csv("../../data/all_tasks_clean.csv", show_col_types = FALSE)
+
+fmt <- function(x, digits = 1) format(round(x, digits), nsmall = digits, big.mark = ",", trim = TRUE)
+
+# ---- Jobs: labour time and elapsed time -------------------------------------
+# Elapsed time is the span from first start to last end on each recorded day;
+# one job was recorded over two days, so its daily spans are added.
+day_spans <- tasks |>
+  group_by(job_id, date) |>
+  summarise(span_h = as.numeric(max(entry_end_time) - min(entry_start_time)) / 3600,
+            .groups = "drop")
+
+jobs <- tasks |>
+  group_by(job_id) |>
+  summarise(
+    date = min(date),
+    n_days = n_distinct(date),
+    n_workers = n_distinct(gulper_id),
+    n_entries = n(),
+    labour_h = sum(duration_seconds) / 3600,
+    .groups = "drop"
+  ) |>
+  left_join(day_spans |> group_by(job_id) |> summarise(elapsed_h = sum(span_h), .groups = "drop"),
+            by = "job_id") |>
+  arrange(date, job_id) |>
+  group_by(date) |>
+  mutate(job_label = if (n() > 1) paste0(format(date, "%Y-%m-%d"), " (", row_number(), ")")
+                     else format(date, "%Y-%m-%d")) |>
+  ungroup()
+
+total_labour_h <- sum(jobs$labour_h)
+total_elapsed_h <- sum(jobs$elapsed_h)
+n_jobs <- nrow(jobs)
+n_workers <- n_distinct(tasks$gulper_id)
+n_entries <- nrow(tasks)
+rest_h <- sum(tasks$duration_seconds[tasks$task == "Rest"]) / 3600
+
+# Sensitivity: the entries flagged timer_suspect capped at 50 minutes
+capped_labour_h <- tasks |>
+  mutate(d = if_else(grepl("timer_suspect", flags), pmin(duration_seconds, 3000), duration_seconds)) |>
+  summarise(h = sum(d) / 3600) |>
+  pull(h)
+n_suspect <- sum(grepl("timer_suspect", tasks$flags))
+
+# ---- Travel to the disposal site ------------------------------------------
+errands <- tasks |> filter(task == "Travel", subtask == "On errand")
+min_trip_min <- 5
+
+travel <- tasks |>
+  filter(task == "Travel", subtask == "Travel to disposal site") |>
+  mutate(s = as.numeric(entry_start_time), e = as.numeric(entry_end_time)) |>
+  arrange(job_id, s) |>
+  group_by(job_id) |>
+  mutate(prev_end = lag(cummax(e), default = -Inf), trip = cumsum(s > prev_end)) |>
+  ungroup()
+
+trips_all <- travel |>
+  group_by(job_id, trip) |>
+  summarise(start = min(s), end = max(e), gulpers = n_distinct(gulper_id),
+            entries = n(), labour_h = sum(duration_seconds) / 3600, .groups = "drop") |>
+  mutate(clock_min = (end - start) / 60, keep = clock_min >= min_trip_min)
+trips <- trips_all |> filter(keep)
+short <- trips_all |> filter(!keep)
+
+summarise_travel <- function(tr) {
+  tr |>
+    group_by(job_id) |>
+    summarise(trips = n(), gulpers = max(gulpers),
+              travel_clock_h = sum(end - start) / 3600,
+              travel_labour_h = sum(labour_h), .groups = "drop") |>
+    left_join(jobs |> select(job_id, date, job_label, labour_h), by = "job_id") |>
+    mutate(share = 100 * travel_labour_h / labour_h) |>
+    arrange(date, job_id)
+}
+travel_jobs <- summarise_travel(trips)
+travel_jobs_unfiltered <- summarise_travel(trips_all)
+
+n_travel_jobs <- nrow(travel_jobs)
+n_trips <- nrow(trips)
+mean_clock_h <- mean(travel_jobs$travel_clock_h)
+median_clock_h <- median(travel_jobs$travel_clock_h)
+mean_travel_labour_h <- mean(travel_jobs$travel_labour_h)
+median_travel_labour_h <- median(travel_jobs$travel_labour_h)
+mean_trip_min <- mean(trips$clock_min)
+mean_gulpers_trip <- mean(trips$gulpers)
+ratio <- sum(travel_jobs$travel_labour_h) / sum(travel_jobs$travel_clock_h)
+travel_share_total <- 100 * sum(travel_jobs$travel_labour_h) / total_labour_h
+
+# Shared plot styling
+bar_theme <- function() {
+  theme_minimal(base_size = 10) +
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text = element_text(colour = "#52514e"),
+      plot.margin = margin(12, 8, 4, 4)
+    )
+}
+```
+
+# Introduction
+
+Time-driven activity-based costing (TDABC) allocates costs to activities
+based on the time resources spend on them. A first step is therefore to
+establish how much time the service being costed consumes, and how that
+time is split between activities that every job needs and activities
+that only some jobs need. Manual pit emptying in Mzuzu involves not only
+emptying the pit but, for some jobs, transporting the extracted sludge
+to a disposal site, an activity that takes the whole team away from the
+site. This manuscript answers two questions:
+
+1. **What is the total amount of time spent on pit emptying jobs?**
+2. **What is the average time spent per job travelling to the disposal
+   site, when a team travels to the disposal site?**
+
+# Data and methods
+
+## Data
+
+The dataset (`data/all_tasks_clean.csv`) contains `r fmt(n_entries, 0)`
+task entries recorded for `r n_jobs` pit emptying jobs between
+`r format(min(jobs$date), "%d %B %Y")` and
+`r format(max(jobs$date), "%d %B %Y")`, performed by `r n_workers`
+anonymised pit emptiers ("gulpers"). Each entry records one worker
+performing one task (e.g. Fluidizing, Extraction, Rest) with a start
+time, end time and duration in seconds.
+
+The file is the cleaned version of the raw app export, produced by
+`data-review/clean.R` and documented in `data-review/README.md`.
+Relative to the raw export, six accidental taps shorter than 2 seconds
+were dropped, the Equipment subtask "Repair" was recoded to "Repairing",
+and job identities were corrected from field knowledge: the recordings
+filed as 2026-06-12_01 and 2026-06-13_01 are one job carried out over
+two days by two crews, and the two recording sessions filed under
+2026-06-14_02 are two separate jobs. The file has no missing values
+except `subtask`, which is empty by design for the Rest and Disposal
+tasks, and recorded durations agree with the difference between end and
+start times to within ±1 second. Sixteen entries longer than 50 minutes
+are kept as recorded; `r n_suspect` of them, in one job, look like
+timers left running over a break and are used in a sensitivity check.
+Jobs are identified below by their date; where two jobs were recorded on
+the same day they are numbered (1) and (2).
+
+## Two measures of time
+
+Several gulpers usually work simultaneously on the same job, so "time
+spent" is measured in two ways throughout:
+
+- **Labour time (person-hours):** the sum of `duration_seconds` over all
+  entries, i.e. every worker's recorded time added together. This is the
+  measure relevant for TDABC, where labour capacity is the resource
+  being costed.
+- **Elapsed time (clock hours):** for each job, the interval from the
+  earliest `entry_start_time` to the latest `entry_end_time` on each
+  recorded day, summed across days and jobs. This measures how long the
+  jobs took on the calendar.
+
+All recorded tasks, including Rest, Communication and in-job Travel, are
+counted as time spent on the job. Travel from the gulpers' base to the
+job site is not among the recorded tasks.
+
+## Travel to the disposal site
+
+The Travel task has two subtasks: *On errand*, for short in-job errands,
+and *Travel to disposal site*, for transporting sludge away from the
+site. Only the second is analysed for question 2; the `r nrow(errands)`
+errand entries (`r fmt(sum(errands$duration_seconds) / 3600)`
+person-hours in `r n_distinct(errands$job_id)` jobs) remain part of
+total job time but are not counted as disposal travel.
+
+Gulpers travel to the disposal site together, so each trip appears in
+the data as several near-identical entries, one per worker. Within each
+job, entries that overlap in time are merged into a single **trip**
+running from the earliest start to the latest end. A job's elapsed
+travel time is the summed duration of its trips, counting a trip made by
+four gulpers once; its labour travel time adds every gulper's entry.
+
+The population for question 2 is the set of jobs in which the team
+travelled to the disposal site. Genuine trips last
+`r fmt(min(trips$clock_min), 0)`–`r fmt(max(trips$clock_min), 0)`
+minutes. A few disposal-site entries are far shorter and cannot
+represent a trip: `r nrow(short)` merged intervals of under
+`r min_trip_min` minutes
+(`r paste(fmt(sort(short$clock_min * 60), 0), collapse = ", ")`
+seconds), each recorded by one or two workers. These are treated as
+accidental taps and dropped, which removes
+`r fmt(sum(short$labour_h) * 60)` person-minutes. One job has only such
+an entry and therefore does not count as a job with a disposal trip.
+
+# Results
+
+## Total time spent on pit emptying jobs
+
+Across the `r n_jobs` observed jobs, gulpers spent a total of
+**`r fmt(total_labour_h)` person-hours** on pit emptying. The jobs took
+a total of **`r fmt(total_elapsed_h)` elapsed clock hours**, so on
+average `r fmt(total_labour_h / total_elapsed_h)` gulpers' worth of time
+was being recorded at any moment of a job. Per job, the mean labour time
+was `r fmt(mean(jobs$labour_h))` person-hours (median
+`r fmt(median(jobs$labour_h))`, range
+`r fmt(min(jobs$labour_h))`–`r fmt(max(jobs$labour_h))`) and the mean
+elapsed time was `r fmt(mean(jobs$elapsed_h))` hours (median
+`r fmt(median(jobs$elapsed_h))`, range
+`r fmt(min(jobs$elapsed_h))`–`r fmt(max(jobs$elapsed_h))`).
+
+@tbl-task breaks the labour time down by main task. Rest is the largest
+single category (`r fmt(rest_h)` person-hours,
+`r fmt(100 * rest_h / total_labour_h)` % of the total).
+
+```{r}
+#| label: tbl-task
+#| tbl-cap: "Labour time by main task, summed over all 36 jobs."
+tasks |>
+  group_by(Task = task) |>
+  summarise(Entries = n(), `Person-hours` = sum(duration_seconds) / 3600, .groups = "drop") |>
+  arrange(desc(`Person-hours`)) |>
+  mutate(`Share (%)` = 100 * `Person-hours` / sum(`Person-hours`)) |>
+  bind_rows(tibble(Task = "Total", Entries = n_entries,
+                   `Person-hours` = total_labour_h, `Share (%)` = 100)) |>
+  kable(digits = 1, format.args = list(big.mark = ","))
+```
+
+@fig-task shows the same breakdown, with tasks coloured by the kind of
+work they belong to.
+
+```{r}
+#| label: fig-task
+#| fig-cap: "Labour time by main task across all 36 jobs, coloured by activity group. Labels give person-hours and share of total labour time."
+#| fig-width: 6.5
+#| fig-height: 4.2
+task_groups <- c(
+  Fluidizing        = "Emptying the pit",
+  Extraction        = "Emptying the pit",
+  `Sludge handling` = "Emptying the pit",
+  Disposal          = "Emptying the pit",
+  Earthworks        = "Site and structure works",
+  Superstructure    = "Site and structure works",
+  Equipment         = "Support tasks",
+  Communication     = "Support tasks",
+  Travel            = "Support tasks",
+  Rest              = "Rest"
+)
+group_colours <- c(
+  "Emptying the pit"         = "#2a78d6",
+  "Site and structure works" = "#eb6834",
+  "Support tasks"            = "#1baf7a",
+  "Rest"                     = "#4a3aa7"
+)
+
+task_summary <- tasks |>
+  group_by(task) |>
+  summarise(hours = sum(duration_seconds) / 3600, .groups = "drop") |>
+  mutate(
+    share = 100 * hours / sum(hours),
+    group = factor(task_groups[task], levels = names(group_colours)),
+    task = reorder(task, hours),
+    label = paste0(fmt(hours), " h (", fmt(share), " %)")
+  )
+
+ggplot(task_summary, aes(x = hours, y = task, fill = group)) +
+  geom_col(width = 0.72) +
+  geom_text(aes(label = label), hjust = -0.08, size = 3, colour = "#52514e") +
+  scale_fill_manual(values = group_colours, name = NULL) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.28))) +
+  labs(x = "Labour time (person-hours)", y = NULL) +
+  bar_theme() +
+  theme(
+    legend.position = "top",
+    legend.justification = "left",
+    legend.key.size = unit(0.4, "cm"),
+    axis.text.y = element_text(colour = "#0b0b0b", size = 10)
+  )
+
+group_hours <- tapply(task_summary$hours, task_summary$group, sum)
+```
+
+Grouped this way, the tasks that directly empty the pit (fluidizing,
+extraction, sludge handling and disposal) account for
+`r fmt(group_hours[["Emptying the pit"]])` person-hours
+(`r fmt(100 * group_hours[["Emptying the pit"]] / total_labour_h)` %),
+about the same as Rest (`r fmt(group_hours[["Rest"]])` person-hours).
+Support tasks take `r fmt(group_hours[["Support tasks"]])` person-hours
+(`r fmt(100 * group_hours[["Support tasks"]] / total_labour_h)` %) and
+site and structure works
+`r fmt(group_hours[["Site and structure works"]])` person-hours
+(`r fmt(100 * group_hours[["Site and structure works"]] / total_labour_h)`
+%).
+
+@fig-jobs shows the labour time of each job. Labour time varies widely
+between jobs; @tbl-jobs in the appendix lists the values for every job.
+
+```{r}
+#| label: fig-jobs
+#| fig-cap: "Labour time (person-hours) per pit emptying job, ordered by date. The dashed line is the mean."
+#| fig-width: 6.5
+#| fig-height: 6
+jobs |>
+  mutate(job_label = factor(job_label, levels = rev(job_label))) |>
+  ggplot(aes(x = labour_h, y = job_label)) +
+  geom_col(fill = "#2a78d6", width = 0.7) +
+  geom_vline(xintercept = mean(jobs$labour_h), linetype = "dashed", colour = "#52514e") +
+  annotate("text", x = mean(jobs$labour_h), y = n_jobs + 0.6,
+           label = paste0("mean ", fmt(mean(jobs$labour_h)), " h"),
+           hjust = -0.05, size = 3, colour = "#52514e") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(clip = "off") +
+  labs(x = "Labour time (person-hours)", y = NULL) +
+  bar_theme()
+```
+
+## Time spent travelling to the disposal site
+
+A team travelled to the disposal site in **`r n_travel_jobs` of the
+`r n_jobs` observed jobs**, making `r n_trips` trips in total. In those
+jobs, the team spent on average **`r fmt(mean_clock_h)` clock hours
+(`r fmt(mean_clock_h * 60, 0)` minutes) per job travelling to the
+disposal site** (median `r fmt(median_clock_h)` hours, range
+`r fmt(min(travel_jobs$travel_clock_h))`–`r fmt(max(travel_jobs$travel_clock_h))`).
+In labour time this is `r fmt(mean_travel_labour_h)` person-hours per
+job (median `r fmt(median_travel_labour_h)`, range
+`r fmt(min(travel_jobs$travel_labour_h))`–`r fmt(max(travel_jobs$travel_labour_h))`).
+
+A job with a disposal trip had `r fmt(mean(travel_jobs$trips))` trips
+on average, each lasting `r fmt(mean_trip_min, 0)` minutes and made by
+`r fmt(mean_gulpers_trip)` gulpers together, so labour time is
+`r fmt(ratio)` times elapsed time. Within these jobs, disposal travel
+took up `r fmt(mean(travel_jobs$share), 0)` % of the job's labour time
+on average (range
+`r fmt(min(travel_jobs$share), 0)`–`r fmt(max(travel_jobs$share), 0)`
+%). Across all `r n_jobs` jobs, disposal travel accounts for
+`r fmt(travel_share_total)` % of the `r fmt(total_labour_h)`
+person-hours recorded. @tbl-travel lists each job with a trip and
+@fig-travel shows the elapsed travel time per job.
+
+```{r}
+#| label: tbl-travel
+#| tbl-cap: "Disposal-site travel for each job in which a trip was made. Elapsed time counts a trip once regardless of how many gulpers made it; labour time adds every gulper's travel. Share is labour travel time as a percentage of the job's total labour time."
+summary_row <- function(label, f) {
+  tibble(
+    `Job Date` = label,
+    Trips = fmt(f(travel_jobs$trips)), Gulpers = fmt(f(travel_jobs$gulpers)),
+    `Elapsed (h)` = f(travel_jobs$travel_clock_h),
+    `Labour (person-h)` = f(travel_jobs$travel_labour_h),
+    `Share of job (%)` = f(travel_jobs$share)
+  )
+}
+
+travel_jobs |>
+  transmute(
+    `Job Date` = job_label,
+    Trips = as.character(trips),
+    Gulpers = as.character(gulpers),
+    `Elapsed (h)` = travel_clock_h,
+    `Labour (person-h)` = travel_labour_h,
+    `Share of job (%)` = share
+  ) |>
+  bind_rows(summary_row("Mean", mean), summary_row("Median", median)) |>
+  kable(digits = 1, align = "lrrrrr")
+```
+
+```{r}
+#| label: fig-travel
+#| fig-cap: "Elapsed time spent travelling to the disposal site per job, for the jobs in which a trip was made, ordered by date. Labels give the number of trips. The dashed line is the mean."
+#| fig-width: 6.5
+#| fig-height: 3.2
+travel_jobs |>
+  mutate(
+    job_label = factor(job_label, levels = rev(job_label)),
+    label = paste0(trips, ifelse(trips == 1, " trip", " trips"))
+  ) |>
+  ggplot(aes(x = travel_clock_h, y = job_label)) +
+  geom_col(fill = "#2a78d6", width = 0.7) +
+  geom_text(aes(label = label), hjust = -0.15, size = 3, colour = "#52514e") +
+  geom_vline(xintercept = mean_clock_h, linetype = "dashed", colour = "#52514e") +
+  annotate("text", x = mean_clock_h, y = n_travel_jobs + 0.7,
+           label = paste0("mean ", fmt(mean_clock_h), " h"),
+           hjust = -0.05, size = 3, colour = "#52514e") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
+  coord_cartesian(clip = "off") +
+  labs(x = "Elapsed travel time (clock hours)", y = NULL) +
+  bar_theme()
+```
+
+Travel time per job is driven mainly by the number of trips: jobs with
+one trip take about half an hour of elapsed time, and the two jobs with
+the most travel
+(`r paste(travel_jobs$job_label[order(-travel_jobs$travel_clock_h)][1:2], collapse = " and ")`)
+made
+`r paste(sort(travel_jobs$trips[order(-travel_jobs$travel_clock_h)][1:2], decreasing = TRUE), collapse = " and ")`
+trips respectively.
+
+## Sensitivity checks
+
+Capping the `r n_suspect` entries that look like timers left running at
+50 minutes would lower the total labour time to
+`r fmt(capped_labour_h)` person-hours, a change of
+`r fmt(total_labour_h - capped_labour_h)` person-hours
+(`r fmt(100 * (total_labour_h - capped_labour_h) / total_labour_h)` %).
+Keeping the short disposal-site entries dropped in the Methods adds one
+job and changes the mean elapsed travel time to
+`r fmt(mean(travel_jobs_unfiltered$travel_clock_h))` hours over
+`r nrow(travel_jobs_unfiltered)` jobs
+(`r fmt(mean(travel_jobs_unfiltered$travel_labour_h))` person-hours);
+this is lower only because the added job contributes a
+`r fmt(min(travel_jobs_unfiltered$travel_clock_h) * 60, 1)`-minute
+entry.
+
+# Conclusion
+
+The `r n_jobs` observed pit emptying jobs consumed
+**`r fmt(total_labour_h)` person-hours** of recorded labour
+(`r fmt(total_elapsed_h)` elapsed clock hours), a mean of
+`r fmt(mean(jobs$labour_h))` person-hours per job. When a team travels
+to the disposal site, which happened in `r n_travel_jobs` of the
+`r n_jobs` jobs, it spends on average **`r fmt(mean_clock_h)` clock
+hours (`r fmt(mean_clock_h * 60, 0)` minutes) per job** on that travel,
+corresponding to **`r fmt(mean_travel_labour_h)` person-hours** of
+labour because `r fmt(mean_gulpers_trip)` gulpers travel together. A
+single trip takes about `r fmt(mean_trip_min, 0)` minutes, and jobs vary
+mainly in how many trips they need. For TDABC purposes the person-hour
+figures are the quantities to cost: total labour time applies to every
+job, and disposal travel should be added only to the jobs that require a
+trip.
+
+# Appendix A: Job-level results {.appendix}
+
+```{r}
+#| label: tbl-jobs
+#| tbl-cap: "Workers, labour time, elapsed time and disposal-site travel for each job. Travel columns are blank for jobs without a trip."
+options(knitr.kable.NA = "")
+jobs |>
+  left_join(travel_jobs |> select(job_id, travel_clock_h, travel_labour_h), by = "job_id") |>
+  transmute(
+    `Job Date` = job_label,
+    Gulpers = n_workers,
+    Entries = n_entries,
+    `Labour (person-h)` = labour_h,
+    `Elapsed (h)` = elapsed_h,
+    `Travel elapsed (h)` = travel_clock_h,
+    `Travel labour (person-h)` = travel_labour_h
+  ) |>
+  bind_rows(tibble(
+    `Job Date` = "Total", Gulpers = n_workers, Entries = n_entries,
+    `Labour (person-h)` = total_labour_h, `Elapsed (h)` = total_elapsed_h,
+    `Travel elapsed (h)` = sum(travel_jobs$travel_clock_h),
+    `Travel labour (person-h)` = sum(travel_jobs$travel_labour_h)
+  )) |>
+  kable(digits = 1, format.args = list(big.mark = ","))
+```
+
+# Appendix B: Relevant literature {.appendix}
+
+The five references in the author's Zotero library most relevant to this
+dataset, with one sentence on why each matters here:
+
+1.  @yesaya2021cost apply time-driven activity-based costing to compost
+    production in Blantyre, Malawi, making it the closest methodological
+    precedent for turning task-level timing data like these into
+    activity costs.
+2.  @wilcox2026formal analyse the costs of 23 formal manual emptying
+    providers in Malawi and Uganda and find labour is what makes manual
+    emptying expensive, which is why the person-hours measured here, for
+    the whole job and for disposal travel, are the key costing inputs.
+3.  @chipeta2017designing designed and tested the pedal-powered Gulper
+    pump in Mzuzu and estimated that a pit can be emptied in 1–2 hours
+    when trash content is low, a benchmark for the job durations recorded
+    here and one against which a half-hour disposal trip is substantial.
+4.  @chiposa2017characterization characterise pit latrines in peri-urban
+    Mzuzu, reporting that 90 % of households also dispose of domestic
+    waste in their pits, which helps explain the time spent on tasks such
+    as pulling out trash and affects how much material must be removed.
+5.  @burt2019costs estimate the cost of delivering pit emptying services
+    in Kigali, Rwanda, at different scales, giving a comparison point for
+    costs derived from the labour and travel times reported here.
+
+# References
+
+::: {#refs}
+:::
